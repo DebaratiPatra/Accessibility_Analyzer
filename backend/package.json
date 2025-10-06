@@ -1,0 +1,27 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@axe-core/puppeteer": "^4.10.2",
+    "axe-core": "^4.10.3",
+    "chrome-launcher": "^1.2.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "lighthouse": "^12.8.2",
+    "mongoose": "^8.19.0",
+    "puppeteer": "^24.23.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
