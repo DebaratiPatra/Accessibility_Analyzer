@@ -9,43 +9,39 @@ function ScanDetails() {
   const [scan, setScan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [refreshInterval, setRefreshInterval] = useState(null);
 
   useEffect(() => {
+    // Function to fetch scan
+    const fetchScan = async () => {
+      try {
+        const response = await getScan(id);
+        setScan(response.data);
+        setError(null);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to load scan details');
+        setLoading(false);
+        console.error(err);
+      }
+    };
+
     fetchScan();
-    
+
     // Auto-refresh if scan is pending
-    const interval = setInterval(() => {
-      if (scan?.status === 'pending') {
-        fetchScan();
+    const interval = setInterval(async () => {
+      try {
+        const latestScan = await getScan(id);
+        setScan(latestScan.data);
+        if (latestScan.data.status !== 'pending') {
+          clearInterval(interval);
+        }
+      } catch (err) {
+        console.error(err);
       }
     }, 3000);
-    
-    setRefreshInterval(interval);
-    
-    return () => {
-      if (refreshInterval) clearInterval(refreshInterval);
-    };
-  }, [id]);
 
-  const fetchScan = async () => {
-    try {
-      const response = await getScan(id);
-      setScan(response.data);
-      
-      // Stop refreshing if scan is completed or failed
-      if (response.data.status !== 'pending' && refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-      
-      setError(null);
-    } catch (err) {
-      setError('Failed to load scan details');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => clearInterval(interval);
+  }, [id]);
 
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this scan?')) {
@@ -58,17 +54,9 @@ function ScanDetails() {
     }
   };
 
-  if (loading) {
-    return <div className="loading">Loading scan details...</div>;
-  }
-
-  if (error) {
-    return <div className="error">{error}</div>;
-  }
-
-  if (!scan) {
-    return <div className="error">Scan not found</div>;
-  }
+  if (loading) return <div className="loading">Loading scan details...</div>;
+  if (error) return <div className="error">{error}</div>;
+  if (!scan) return <div className="error">Scan not found</div>;
 
   return (
     <div className="page-container">
