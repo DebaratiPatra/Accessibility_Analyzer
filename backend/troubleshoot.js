@@ -9,7 +9,7 @@ console.log('🔍 Accessibility Analyzer - Troubleshooting Tool\n');
 async function checkMongoDB() {
   console.log('1️⃣  Checking MongoDB connection...');
   try {
-    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/accessibility-analyzer';
+    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://A_A_user:A_A_password@cluster-accessibilityan.67f7a2s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster-accessibilityAnalyzer';
     await mongoose.connect(MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
