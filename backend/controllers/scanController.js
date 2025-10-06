@@ -6,15 +6,19 @@ const Scan = require('../models/Scan');
 
 // Run Lighthouse audit
 async function runLighthouse(url) {
-  const chrome = await chromeLauncher.launch({ chromeFlags: ['--headless'] });
-  const options = {
-    logLevel: 'info',
-    output: 'json',
-    onlyCategories: ['accessibility'],
-    port: chrome.port,
-  };
-
+  let chrome;
   try {
+    chrome = await chromeLauncher.launch({ 
+      chromeFlags: ['--headless', '--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage'] 
+    });
+    
+    const options = {
+      logLevel: 'error',
+      output: 'json',
+      onlyCategories: ['accessibility'],
+      port: chrome.port,
+    };
+
     const runnerResult = await lighthouse(url, options);
     await chrome.kill();
 
@@ -26,18 +30,30 @@ async function runLighthouse(url) {
       audits: lhr.audits,
     };
   } catch (error) {
-    await chrome.kill();
-    throw error;
+    if (chrome) await chrome.kill();
+    console.error('Lighthouse error:', error);
+    throw new Error(`Lighthouse scan failed: ${error.message}`);
   }
 }
 
 // Run Axe-core audit
 async function runAxe(url) {
-  const browser = await puppeteer.launch({ headless: 'new' });
-  const page = await browser.newPage();
-
+  let browser;
   try {
-    await page.goto(url, { waitUntil: 'networkidle2' });
+    browser = await puppeteer.launch({ 
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    });
+    
+    const page = await browser.newPage();
+    await page.setBypassCSP(true);
+    
+    // Set a reasonable timeout
+    await page.goto(url, { 
+      waitUntil: 'networkidle2',
+      timeout: 30000 
+    });
+    
     const results = await new AxePuppeteer(page).analyze();
     await browser.close();
 
@@ -48,8 +64,9 @@ async function runAxe(url) {
       inapplicable: results.inapplicable,
     };
   } catch (error) {
-    await browser.close();
-    throw error;
+    if (browser) await browser.close();
+    console.error('Axe-core error:', error);
+    throw new Error(`Axe-core scan failed: ${error.message}`);
   }
 }
 
@@ -81,6 +98,56 @@ function calculateSummary(lighthouseResults, axeResults) {
   };
 }
 
+// Perform the actual scan
+async function performScan(scanId) {
+  try {
+    const scan = await Scan.findById(scanId);
+    if (!scan) {
+      console.error('Scan not found:', scanId);
+      return;
+    }
+
+    console.log(`Starting scan for: ${scan.url}`);
+
+    let lighthouseResults = null;
+    let axeResults = null;
+
+    if (scan.scanType === 'lighthouse' || scan.scanType === 'both') {
+      console.log('Running Lighthouse...');
+      lighthouseResults = await runLighthouse(scan.url);
+      console.log('Lighthouse completed');
+    }
+
+    if (scan.scanType === 'axe' || scan.scanType === 'both') {
+      console.log('Running Axe-core...');
+      axeResults = await runAxe(scan.url);
+      console.log('Axe-core completed');
+    }
+
+    const summary = calculateSummary(lighthouseResults, axeResults);
+
+    scan.lighthouseResults = lighthouseResults;
+    scan.axeResults = axeResults;
+    scan.summary = summary;
+    scan.status = 'completed';
+
+    await scan.save();
+    console.log(`Scan completed for: ${scan.url}`);
+  } catch (error) {
+    console.error('Scan error:', error);
+    try {
+      const scan = await Scan.findById(scanId);
+      if (scan) {
+        scan.status = 'failed';
+        scan.error = error.message;
+        await scan.save();
+      }
+    } catch (saveError) {
+      console.error('Error saving failed status:', saveError);
+    }
+  }
+}
+
 // Create new scan
 exports.createScan = async (req, res) => {
   try {
@@ -88,6 +155,13 @@ exports.createScan = async (req, res) => {
 
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
+    }
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid URL format' });
     }
 
     // Create initial scan record
@@ -98,35 +172,12 @@ exports.createScan = async (req, res) => {
     });
 
     await scan.save();
+    console.log('Scan created:', scan._id);
 
-    // Run scans asynchronously
-    (async () => {
-      try {
-        let lighthouseResults = null;
-        let axeResults = null;
-
-        if (scanType === 'lighthouse' || scanType === 'both') {
-          lighthouseResults = await runLighthouse(url);
-        }
-
-        if (scanType === 'axe' || scanType === 'both') {
-          axeResults = await runAxe(url);
-        }
-
-        const summary = calculateSummary(lighthouseResults, axeResults);
-
-        scan.lighthouseResults = lighthouseResults;
-        scan.axeResults = axeResults;
-        scan.summary = summary;
-        scan.status = 'completed';
-
-        await scan.save();
-      } catch (error) {
-        scan.status = 'failed';
-        scan.error = error.message;
-        await scan.save();
-      }
-    })();
+    // Start scan in background
+    setImmediate(() => {
+      performScan(scan._id.toString());
+    });
 
     res.status(201).json({
       message: 'Scan started',
@@ -134,7 +185,11 @@ exports.createScan = async (req, res) => {
       scan,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Create scan error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create scan',
+      message: error.message 
+    });
   }
 };
 
@@ -149,6 +204,7 @@ exports.getScan = async (req, res) => {
 
     res.json(scan);
   } catch (error) {
+    console.error('Get scan error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -161,17 +217,19 @@ exports.getAllScans = async (req, res) => {
     const scans = await Scan.find()
       .sort({ createdAt: -1 })
       .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .skip((page - 1) * limit)
+      .exec();
 
     const count = await Scan.countDocuments();
 
     res.json({
       scans,
       totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      currentPage: parseInt(page),
       totalScans: count,
     });
   } catch (error) {
+    console.error('Get all scans error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -187,6 +245,7 @@ exports.deleteScan = async (req, res) => {
 
     res.json({ message: 'Scan deleted successfully' });
   } catch (error) {
+    console.error('Delete scan error:', error);
     res.status(500).json({ error: error.message });
   }
 };
