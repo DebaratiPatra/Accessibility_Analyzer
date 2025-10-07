@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "postinstall": "apt-get update && apt-get install -y chromium || echo 'Chromium install skipped'"
   },
   "dependencies": {
     "@axe-core/puppeteer": "^4.8.1",
@@ -19,5 +20,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
