@@ -5,6 +5,7 @@ import NewScan from './pages/NewScan';
 import ScanDetails from './pages/ScanDetails';
 import ScanHistory from './pages/ScanHistory';
 import Reports from './pages/Reports';
+import ProgressTracker from './pages/ProgressTracker';
 
 function App() {
   return (
@@ -13,12 +14,16 @@ function App() {
         <nav className="navbar">
           <div className="nav-container">
             <Link to="/" className="nav-brand">
-              🔍 A11yGuard
+              <img src="/images/logo.png" 
+            alt="A11yGuard Logo" 
+            className="logo"
+            height={25}></img> A11yGuard
             </Link>
             <ul className="nav-menu">
               <li><Link to="/">Dashboard</Link></li>
               <li><Link to="/new-scan">New Scan</Link></li>
               <li><Link to="/history">History</Link></li>
+              <li><Link to="/progress">Progress</Link></li>
               <li><Link to="/reports">Reports</Link></li>
             </ul>
           </div>
@@ -30,6 +35,7 @@ function App() {
             <Route path="/new-scan" element={<NewScan />} />
             <Route path="/scan/:id" element={<ScanDetails />} />
             <Route path="/history" element={<ScanHistory />} />
+            <Route path="/progress" element={<ProgressTracker />} />
             <Route path="/reports" element={<Reports />} />
           </Routes>
         </main>

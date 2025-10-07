@@ -17,9 +17,11 @@ mongoose.connect(process.env.MONGODB_URI )
 // Routes
 const scanRoutes = require('./routes/scanRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const comparisonRoutes = require('./routes/comparisonRoutes');
 
 app.use('/api/scans', scanRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/compare', comparisonRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
