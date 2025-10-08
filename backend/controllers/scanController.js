@@ -33,7 +33,20 @@ async function runLighthouse(url) {
 
 // Run Axe-core audit
 async function runAxe(url) {
-  const browser = await puppeteer.launch({ headless: 'new' });
+  const browser = await puppeteer.launch({ 
+  headless: 'new',
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-accelerated-2d-canvas',
+    '--no-first-run',
+    '--no-zygote',
+    '--single-process',
+    '--disable-gpu'
+  ],
+  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null
+});
   const page = await browser.newPage();
 
   try {
