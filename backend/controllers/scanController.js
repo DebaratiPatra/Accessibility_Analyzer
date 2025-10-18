@@ -1,11 +1,13 @@
-const lighthouse = require('lighthouse');
 const chromeLauncher = require('chrome-launcher');
 const puppeteer = require('puppeteer');
 const { AxePuppeteer } = require('@axe-core/puppeteer');
 const Scan = require('../models/Scan');
 
-// Run Lighthouse audit
+// Run Lighthouse audit (lighthouse is ESM-only; import dynamically)
 async function runLighthouse(url) {
+  // dynamic import works from CommonJS modules
+  const { default: lighthouse } = await import('lighthouse');
+
   const chrome = await chromeLauncher.launch({ chromeFlags: ['--headless'] });
   const options = {
     logLevel: 'info',
@@ -19,7 +21,7 @@ async function runLighthouse(url) {
     await chrome.kill();
 
     const { lhr } = runnerResult;
-    
+
     return {
       score: lhr.categories.accessibility.score * 100,
       categories: lhr.categories,
