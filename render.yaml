@@ -1,0 +1,16 @@
+# Render manifest to create two services: frontend (Static Site) and backend (Docker Web Service)
+services:
+  - type: static_site
+    name: accessibility-analyzer-frontend
+    env: node
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+
+  - type: web_service
+    name: accessibility-analyzer-backend
+    env: docker
+    plan: free
+    dockerContext: backend
+    # The service will expose the port from the container. Render will set PORT env.
+    # Set environment variables (MONGODB_URI) in Render dashboard after creating the service.
